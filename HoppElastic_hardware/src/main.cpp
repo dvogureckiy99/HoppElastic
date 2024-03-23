@@ -7,6 +7,7 @@
 #include <stdint.h>
 #include <math.h>
 #include "DynamixelSerial.h"
+#include "MPU6050.h"
 // #include <avr/cpufunc.h>
 
 #define AX_18A 0
@@ -51,7 +52,7 @@ uint32_t control_cycle_MOTION = 0; // count number of control cycle execution
 uint32_t control_cycle_MODE = 0;
 uint8_t communication_cycle_cnt = 0;
 // uint8_t flag_direction = 1;//1 - clockwise, 0 -counter clockwise, 1 at the start
-uint32_t real_time_counter_4CPUticks = 0; //real time in msec with dt=0.1220703125
+// uint32_t real_time_counter_4CPUticks = 0; //real time in msec with dt=0.1220703125
 
 // for amplitudes parameters
 int position_desired_up_motion ;
@@ -76,7 +77,7 @@ void setup() {
 
   CLKCTRL.MCLKCTRLB &= ~CLKCTRL_PEN_bm; // disable MAIN_CLOCK PRESCALER
 
-  Serial.begin(115200);
+  Serial.begin(256000);
   initMotors();
   RTC_init();
 
@@ -289,7 +290,7 @@ void RTC_init(void){
 ISR(RTC_PIT_vect){
   // run every 4/32768 sec = 0.1220703125 msec = 122.0703125 usec 
   PIT_counter ++;
-  real_time_counter_4CPUticks ++ ; // real time counter in 4 CPU ticks
+  // real_time_counter_4CPUticks ++ ; // real time counter in 4 CPU ticks
   // flag_RTC_PIT_happened = 1;
   /* Clear flag by writing '1': */
   RTC.PITINTFLAGS = RTC_PI_bm;
