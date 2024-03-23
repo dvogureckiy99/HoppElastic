@@ -25,7 +25,7 @@
 #define MOTION_PERIOD_REAL 400
  
 #define MODE_A 45 // [grad] amplitude of sin
-#define MODE_EQUIL 145 // [grad]
+#define MODE_EQUIL 155 // [grad]
 #define MODE_VEL_START AX_18A_MAX_SPEED // [cmd] AX_18A_MAX_SPEED=max, proportional to the FREQ of SINE
 #define MODE_PERIOD_REAL MOTION_PERIOD_REAL
 
@@ -93,7 +93,7 @@ void setup() {
   position_desired_up_mode    = transform_position_ang2comm_fl(MODE_EQUIL) ;
 
   Dynamixel.moveSpeed(MOTION_ID, position_desired_up_motion, motion_vel );
-  // delay(PHASE_SHIFT); 
+  delay(PHASE_SHIFT); 
   Dynamixel.moveSpeed(MODE_ID, position_desired_up_mode, mode_vel );
   // this need for control sequence doesn't call immidiatelly after entering in main loop
   // cause RTC timer will be overflowed anyway to this time 
