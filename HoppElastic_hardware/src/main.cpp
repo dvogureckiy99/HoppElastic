@@ -144,7 +144,7 @@ void loop() {
   // @@@@@@@@@@@@@@@@@@@@@@@ end of sine control algorithm @@@@@@@@@@@@@@@@@@@@@@@
 
 // ------------------- serial communication procedure -----------------  
-  if(communication_cycle_cnt > 9){
+  if(communication_cycle_cnt > 1){
     time += PIT_counter;
     PIT_counter = 0;
     communication_cycle();
