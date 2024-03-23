@@ -29,7 +29,7 @@
 #define MODE_VEL_START AX_18A_MAX_SPEED // [cmd] AX_18A_MAX_SPEED=max, proportional to the FREQ of SINE
 #define MODE_PERIOD_REAL MOTION_PERIOD_REAL
 
-#define PHASE_SHIFT_REAL M_PI/2 // [rad]
+#define PHASE_SHIFT_REAL M_PI // [rad]
 
 #define PHASE_SHIFT MODE_PERIOD_REAL*PHASE_SHIFT_REAL/(2*M_PI) // phase shift in msec
 #define MODE_PERIOD MODE_PERIOD_REAL/10 //  REAL_PERIOD=MOTION_PERIOD*10 msec
@@ -52,7 +52,7 @@ uint32_t control_cycle_MOTION = 0; // count number of control cycle execution
 uint32_t control_cycle_MODE = 0;
 uint8_t communication_cycle_cnt = 0;
 // uint8_t flag_direction = 1;//1 - clockwise, 0 -counter clockwise, 1 at the start
-// uint32_t real_time_counter_4CPUticks = 0; //real time in msec with dt=0.1220703125
+uint32_t real_time_counter_4CPUticks = 0; //real time in cmd with dt=0.1220703125
 
 // for amplitudes parameters
 int position_desired_up_motion ;
@@ -71,6 +71,7 @@ uint64_t time = 0;
 
 uint8_t flag_direction_motion = 1;
 uint8_t flag_direction_mode = 1;
+uint8_t flag_control_started = 0;
 
 void setup() {
   delay(2000);
@@ -93,25 +94,35 @@ void setup() {
   mode_vel = MODE_VEL_START;
 
   Dynamixel.moveSpeed(MOTION_ID, position_desired_up_motion, motion_vel );
-  // delay(100); 
-  Dynamixel.moveSpeed(MODE_ID, position_desired_up_mode, mode_vel );
+  
   // this need for control sequence doesn't call immidiatelly after entering in main loop
   // cause RTC timer will be overflowed anyway to this time 
   // the same for PIT counter
-  PIT_counter = 0;
+  real_time_counter_4CPUticks = 0;
   RTC.INTFLAGS = RTC_OVF_bm;
   flag_RTC_Overflow_happened = 0;
 }
 
-uint8_t counter_of_data_order = 0; // 1-6
-
 void loop() {
     
 // ^^^^^^^^^^^^^^^^^^^^^^^ sine control, synchronization and calibration loop ^^^^^^^^^^^^^^^^^^^^^^^
+
+  
+
   if(flag_RTC_Overflow_happened){ // __ ms passed
     flag_RTC_Overflow_happened = 0; // flag is to zero until next ___ ms interval passed
     control_cycle_MOTION ++; 
-    control_cycle_MODE ++;
+
+    if(flag_control_started)
+    {
+      control_cycle_MODE ++;
+    }else{
+      if(real_time_counter_4CPUticks*0.1220703125>=PHASE_SHIFT)
+      {
+        Dynamixel.moveSpeed(MODE_ID, position_desired_up_mode, mode_vel );
+        flag_control_started = 1;
+      }
+    } 
     communication_cycle_cnt ++;
     // communication_cycle();
     // motion_pos = transform_position_comm2ang_fl(Dynamixel.readPosition(MOTION_ID));
@@ -145,8 +156,6 @@ void loop() {
 
 // ------------------- serial communication procedure -----------------  
   if(communication_cycle_cnt > 1){
-    time += PIT_counter;
-    PIT_counter = 0;
     communication_cycle();
     communication_cycle_cnt = 0;
   }
@@ -240,7 +249,7 @@ void sendMotionMotorStates(void){
   // Serial.write(buf,buf_size);
 
 
-  Serial.print(time);
+  Serial.print(real_time_counter_4CPUticks);
   Serial.print(", ");
   Serial.print(motion_pos);
   Serial.print(", ");
@@ -289,8 +298,8 @@ void RTC_init(void){
 
 ISR(RTC_PIT_vect){
   // run every 4/32768 sec = 0.1220703125 msec = 122.0703125 usec 
-  PIT_counter ++;
-  // real_time_counter_4CPUticks ++ ; // real time counter in 4 CPU ticks
+  // PIT_counter ++;
+  real_time_counter_4CPUticks ++ ; // real time counter in 4 CPU ticks
   // flag_RTC_PIT_happened = 1;
   /* Clear flag by writing '1': */
   RTC.PITINTFLAGS = RTC_PI_bm;
