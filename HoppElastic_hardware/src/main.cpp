@@ -90,7 +90,7 @@ void setup() {
   position_desired_down_motion  =  transform_position_ang2comm_fl(MOTION_EQUIL - MOTION_A);
   position_desired_up_motion    = transform_position_ang2comm_fl(MOTION_EQUIL + MOTION_A) ;
   position_desired_down_mode  = transform_position_ang2comm_fl(MODE_EQUIL - MODE_A);
-  position_desired_up_mode    = transform_position_ang2comm_fl(MODE_EQUIL + MODE_A) ;
+  position_desired_up_mode    = transform_position_ang2comm_fl(MODE_EQUIL) ;
 
   Dynamixel.moveSpeed(MOTION_ID, position_desired_up_motion, motion_vel );
   // delay(PHASE_SHIFT); 
@@ -131,16 +131,16 @@ void loop() {
     control_cycle_MOTION = 0;
   }
   
-  if(control_cycle_MODE >= MODE_HALFPERIOD ){
-    if(flag_direction_mode){
-      flag_direction_mode = 0;
-      Dynamixel.moveSpeed(MODE_ID, position_desired_down_mode , mode_vel );
-    }else{
-      flag_direction_mode = 1;
-      Dynamixel.moveSpeed(MODE_ID, position_desired_up_mode, mode_vel );
-    }
-    control_cycle_MODE = 0;
-  }
+  // if(control_cycle_MODE >= MODE_HALFPERIOD ){
+  //   if(flag_direction_mode){
+  //     flag_direction_mode = 0;
+  //     Dynamixel.moveSpeed(MODE_ID, position_desired_down_mode , mode_vel );
+  //   }else{
+  //     flag_direction_mode = 1;
+  //     Dynamixel.moveSpeed(MODE_ID, position_desired_up_mode, mode_vel );
+  //   }
+  //   control_cycle_MODE = 0;
+  // }
   // @@@@@@@@@@@@@@@@@@@@@@@ end of sine control algorithm @@@@@@@@@@@@@@@@@@@@@@@
 
 // ------------------- serial communication procedure -----------------  
