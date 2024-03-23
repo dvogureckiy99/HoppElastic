@@ -19,20 +19,20 @@
 #define MOTION_ID 81 // AX18A
 
 // main parameters
-#define MOTION_A 60 // [grad] amplitude of sin
-#define MOTION_EQUIL 80 // [grad]
+#define MOTION_A 30 // [grad] amplitude of sin
+#define MOTION_EQUIL 140 // [grad]
 #define MOTION_VEL_START AX_18A_MAX_SPEED // [cmd] AX_18A_MAX_SPEED=max, proportional to the FREQ of SINE
 #define MOTION_PERIOD_REAL 400
  
-#define MODE_A 45 // [grad] amplitude of sin
-#define MODE_EQUIL 155 // [grad]
+#define MODE_A 30 // [grad] amplitude of sin
+#define MODE_EQUIL 145 // [grad]
 #define MODE_VEL_START AX_18A_MAX_SPEED // [cmd] AX_18A_MAX_SPEED=max, proportional to the FREQ of SINE
 #define MODE_PERIOD_REAL MOTION_PERIOD_REAL
 
 #define PHASE_SHIFT_REAL M_PI/2 // [rad]
 
 #define PHASE_SHIFT MODE_PERIOD_REAL*PHASE_SHIFT_REAL/(2*M_PI) // phase shift in msec
-#define MODE_PERIOD MODE_PERIOD_REAL/10 //  REAL_PERIOD=MOTION_PERIOD*5 msec
+#define MODE_PERIOD MODE_PERIOD_REAL/10 //  REAL_PERIOD=MOTION_PERIOD*10 msec
 #define MODE_HALFPERIOD MODE_PERIOD/2
 #define MOTION_PERIOD MOTION_PERIOD_REAL/10 //  REAL_PERIOD=MOTION_PERIOD*5 msec
 #define MOTION_HALFPERIOD MOTION_PERIOD/2
@@ -77,6 +77,11 @@ void setup() {
 
   CLKCTRL.MCLKCTRLB &= ~CLKCTRL_PEN_bm; // disable MAIN_CLOCK PRESCALER
 
+  position_desired_down_motion  =  transform_position_ang2comm_fl(MOTION_EQUIL - MOTION_A);
+  position_desired_up_motion    = transform_position_ang2comm_fl(MOTION_EQUIL + MOTION_A) ;
+  position_desired_down_mode  = transform_position_ang2comm_fl(MODE_EQUIL - MODE_A);
+  position_desired_up_mode    = transform_position_ang2comm_fl(MODE_EQUIL + MODE_A) ;
+
   Serial.begin(256000);
   initMotors();
   RTC_init();
@@ -87,13 +92,8 @@ void setup() {
   motion_vel = MOTION_VEL_START;
   mode_vel = MODE_VEL_START;
 
-  position_desired_down_motion  =  transform_position_ang2comm_fl(MOTION_EQUIL - MOTION_A);
-  position_desired_up_motion    = transform_position_ang2comm_fl(MOTION_EQUIL + MOTION_A) ;
-  position_desired_down_mode  = transform_position_ang2comm_fl(MODE_EQUIL - MODE_A);
-  position_desired_up_mode    = transform_position_ang2comm_fl(MODE_EQUIL) ;
-
   Dynamixel.moveSpeed(MOTION_ID, position_desired_up_motion, motion_vel );
-  delay(PHASE_SHIFT); 
+  // delay(100); 
   Dynamixel.moveSpeed(MODE_ID, position_desired_up_mode, mode_vel );
   // this need for control sequence doesn't call immidiatelly after entering in main loop
   // cause RTC timer will be overflowed anyway to this time 
@@ -206,9 +206,9 @@ void initMotors(void){
   Dynamixel.setAngleLimit(MODE_ID, 0x0000, 0x03FF);
 
   delay(2000);
-  Dynamixel.moveSpeed(MOTION_ID, transform_position_ang2comm_fl(MOTION_EQUIL), MOTION_VEL_START );
+  Dynamixel.moveSpeed(MOTION_ID, position_desired_down_motion, MOTION_VEL_START );
   delay(2000);
-  Dynamixel.moveSpeed(MODE_ID, transform_position_ang2comm_fl(MODE_EQUIL), MODE_VEL_START );
+  Dynamixel.moveSpeed(MODE_ID, position_desired_down_mode, MODE_VEL_START );
   delay(2000);
 }
 
