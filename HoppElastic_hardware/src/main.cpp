@@ -66,8 +66,7 @@ int motion_pos ; // present postition
 int mode_pos ; // present postition 
 int motion_load;
 int mode_load;
-uint64_t time = 0;
-// const int buf_size = sizeof(time)+sizeof(motion_pos)+sizeof(mode_pos)+sizeof(motion_load)+sizeof(mode_load)+7;
+const int buf_size = sizeof(real_time_counter_4CPUticks)+sizeof(motion_pos)+sizeof(mode_pos)+sizeof(motion_load)+sizeof(mode_load)+4;
 
 uint8_t flag_direction_motion = 1;
 uint8_t flag_direction_mode = 1;
@@ -220,47 +219,25 @@ void initMotors(void){
 }
 
 void sendMotionMotorStates(void){
-  
-  // uint8_t buf[buf_size];
-  // for(int i=0;i<8;i++){
-  //   buf[i] = time >> (i*8);
-  // } 
-  // buf[8] = ',';
-  // for(int i=0;i<2;i++){
-  //   buf[i] = motion_pos >> (i*8);
-  // } 
-  // buf[11] = ',';
-  // for(int i=0;i<2;i++){
-  //   buf[i] = mode_pos >> (i*8);
-  // } 
-  // buf[14] = ',';
-  // for(int i=0;i<2;i++){
-  //   buf[i] = motion_load >> (i*8);
-  // } 
-  // buf[17] = ',';
-  // for(int i=0;i<2;i++){
-  //   buf[i] = mode_load >> (i*8);
-  // } 
-  // buf[20] = ';';
-  // buf[21] = 13;
-  // buf[22] = 10;
-  // Serial.write(buf,buf_size);
-
-
-  Serial.print(real_time_counter_4CPUticks);
-  Serial.print(", ");
-  Serial.print(motion_pos);
-  Serial.print(", ");
-  Serial.print(mode_pos);
-  Serial.print(", ");
-  // Serial.print(motion_vel);
-  // Serial.print(", ");
-  // Serial.print(mode_vel);
-  // Serial.print(", ");
-  Serial.print(motion_load);
-  Serial.print(", ");
-  Serial.print(mode_load);
-  Serial.println(";"); 
+  // Dynamixel's sensor data
+  uint8_t buf[buf_size];
+  buf[0] = 0xFE;
+  buf[1] = 0xEF;
+  buf[2] = real_time_counter_4CPUticks;
+  buf[3] = real_time_counter_4CPUticks >> 8;
+  buf[4] = real_time_counter_4CPUticks >> 16;
+  buf[5] = real_time_counter_4CPUticks >> 24;  
+  buf[6] = motion_pos ;
+  buf[7] = motion_pos >> 8;
+  buf[8] = mode_pos ;
+  buf[9] = mode_pos >> 8;
+  buf[10] = motion_load ;
+  buf[11] = motion_load >> 8;
+  buf[12] = mode_load ;
+  buf[13] = mode_load >> 8;
+  buf[14] = 13;
+  buf[15] = 10;
+  Serial.write(buf,buf_size);
 }
 
 void RTC_init(void){   
