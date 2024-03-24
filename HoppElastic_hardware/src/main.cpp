@@ -12,7 +12,7 @@
 
 #define AX_18A 0
 #define AX_12A 1
-#define AX_18A_MAX_SPEED 582
+#define AX_18A_MAX_SPEED 873 // 582 grad/sec
 #define AX_12A_MAX_SPEED 354
 
 #define MODE_ID   82 // AX18A
@@ -101,6 +101,9 @@ void setup() {
   RTC.INTFLAGS = RTC_OVF_bm;
   flag_RTC_Overflow_happened = 0;
 }
+
+// #define ACCEL  // deg/sec^2
+// #define ACCEL_cmd //
 
 void loop() {
     
