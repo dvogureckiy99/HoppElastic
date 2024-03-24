@@ -20,7 +20,7 @@
 
 // main parameters
 #define MOTION_A 30 // [grad] amplitude of sin
-#define MOTION_EQUIL 140 // [grad]
+#define MOTION_EQUIL 100 // [grad]
 #define MOTION_VEL_START AX_18A_MAX_SPEED // [cmd] AX_18A_MAX_SPEED=max, proportional to the FREQ of SINE
 #define MOTION_PERIOD_REAL 400
  
@@ -29,7 +29,7 @@
 #define MODE_VEL_START AX_18A_MAX_SPEED // [cmd] AX_18A_MAX_SPEED=max, proportional to the FREQ of SINE
 #define MODE_PERIOD_REAL MOTION_PERIOD_REAL
 
-#define PHASE_SHIFT_REAL M_PI // [rad]
+#define PHASE_SHIFT_REAL M_PI*0 // [rad]
 
 #define PHASE_SHIFT MODE_PERIOD_REAL*PHASE_SHIFT_REAL/(2*M_PI) // phase shift in msec
 #define MODE_PERIOD MODE_PERIOD_REAL/10 //  REAL_PERIOD=MOTION_PERIOD*10 msec
@@ -106,9 +106,6 @@ void setup() {
 void loop() {
     
 // ^^^^^^^^^^^^^^^^^^^^^^^ sine control, synchronization and calibration loop ^^^^^^^^^^^^^^^^^^^^^^^
-
-  
-
   if(flag_RTC_Overflow_happened){ // __ ms passed
     flag_RTC_Overflow_happened = 0; // flag is to zero until next ___ ms interval passed
     control_cycle_MOTION ++; 
@@ -120,6 +117,7 @@ void loop() {
       if(real_time_counter_4CPUticks*0.1220703125>=PHASE_SHIFT)
       {
         Dynamixel.moveSpeed(MODE_ID, position_desired_up_mode, mode_vel );
+        control_cycle_MODE ++;
         flag_control_started = 1;
       }
     } 
