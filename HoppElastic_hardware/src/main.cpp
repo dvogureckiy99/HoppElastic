@@ -70,7 +70,6 @@ const int buf_size = sizeof(real_time_counter_4CPUticks)+sizeof(motion_pos)+size
 
 uint8_t flag_direction_motion = 1;
 uint8_t flag_direction_mode = 1;
-uint8_t flag_control_started = 0;
 
 #define ACCEL 12 // rad/sec^2
 int a = 0;
