@@ -19,7 +19,7 @@
 #define MOTION_ID 81 // AX18A
 
 // main parameters
-#define MOTION_A 30 // [grad] amplitude of sin
+#define MOTION_A 50 // [grad] amplitude of sin
 #define MOTION_EQUIL 100 // [grad]
 #define MOTION_VEL_START AX_18A_MAX_SPEED // [cmd] AX_18A_MAX_SPEED=max, proportional to the FREQ of SINE
 #define MOTION_PERIOD_REAL 400
@@ -72,14 +72,13 @@ uint8_t flag_direction_motion = 1;
 uint8_t flag_direction_mode = 1;
 uint8_t flag_control_started = 0;
 
-#define ACCEL_cmd 0.0015 // cmd/msec^2   e=0.006528-T=500ms;0.013056-250ms;0.003264-1s
-#define ACCEL 7.5 // rad/sec
-// uint32_t last_control_cycle;
+#define ACCEL 12 // rad/sec^2
 int a = 0;
-int v = 0;
 uint16_t b = 0;
 uint16_t halfT;
+float accel_cmdmsec; // accel in cmd/msec^2
 // #define halfT sqrt(2*((float)position_desired_up_motion-(float)position_desired_down_motion)/ACCEL_cmd)
+uint32_t last_control_cycle = 0;
 
 void setup() {
   delay(2000);
@@ -95,6 +94,7 @@ void setup() {
   // double var = sqrt(2.0*((double)position_desired_up_motion-(double)position_desired_down_motion)/ACCEL_cmd);
   double var = sqrt(2.0*((double)position_desired_up_motion-(double)position_desired_down_motion)/(ACCEL*180*3.4099999999999997*1e-6/M_PI));
   halfT = (uint32_t)var;
+  accel_cmdmsec = (ACCEL*180*3.4099999999999997*1e-6/M_PI);
 
   Serial.begin(256000);
   initMotors();
@@ -131,8 +131,9 @@ void loop() {
 
     b =   fmod(real_time_counter_4CPUticks*0.1220703125, 2*halfT);
     if( b <= halfT ){
-      a =  ACCEL_cmd*pow(b,2.0)/2.0 + position_desired_down_motion;}else{
-      a =  -ACCEL_cmd*pow(b-halfT,2.0)/2.0 + position_desired_up_motion;
+      a = accel_cmdmsec*pow(b,2.0)/2.0 + position_desired_down_motion;
+    }else{
+      a =  -accel_cmdmsec*pow(b-halfT,2.0)/2.0 + position_desired_up_motion;
     }
     Dynamixel.moveSpeed(MOTION_ID, a, MOTION_VEL_START );
 // @@@@@@@@@@@@@@@@@@@@@@@ end of sine control algorithm @@@@@@@@@@@@@@@@@@@@@@@
@@ -165,8 +166,8 @@ void communication_cycle(void){
 }
 
 int transform_velocity_fl(int motor,float vel){
-  // input velocity in grad/sec.
-  const float gain_vel2com = 1.5;
+  // input velocity in rad/sec.
+  const float gain_vel2com = 85.94366926962348;
   float uppper_speed_limit;
   if(motor == AX_18A){  
     uppper_speed_limit = AX_18A_MAX_SPEED;  // 582 grad/sec, 97 rpm, 873 cmd max speed for AX18A
@@ -243,10 +244,15 @@ void sendMotionMotorStates(void){
   buf[9] = c[1];
   // buf[8] = mode_pos ;
   // buf[9] = mode_pos >> 8;
-  buf[10] = motion_load ;
-  buf[11] = motion_load >> 8;
-  buf[12] = mode_load ;
-  buf[13] = mode_load >> 8;
+  memcpy(c, &accel_cmdmsec, 4);
+  buf[10] = c[0];
+  buf[11] = c[1];
+  buf[12] = c[2];
+  buf[13] = c[3];
+  // buf[10] = motion_load ;
+  // buf[11] = motion_load >> 8;
+  // buf[12] = mode_load ;
+  // buf[13] = mode_load >> 8;
   buf[14] = 13;
   buf[15] = 10;
   Serial.write(buf,buf_size);
