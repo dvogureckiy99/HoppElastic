@@ -7,7 +7,8 @@
 #include <stdint.h>
 #include <math.h>
 #include "DynamixelSerial.h"
-#include "MPU6050.h"
+#include "I2Cdev.h"
+#include "MPU6050_9Axis_MotionApps41.h"
 // #include <avr/cpufunc.h>
 
 #define AX_18A 0
@@ -39,6 +40,7 @@
 
 void initMotors(void);
 void sendMotionMotorStates(void);
+void sendIMUdata(void);
 int transform_velocity_fl(int motor,float vel);
 float transform_position_comm2ang_fl(int angle);
 void RTC_init(void);
@@ -50,7 +52,7 @@ volatile uint16_t PIT_counter = 0; // 1 tick = 0.1220703125 msec = 122.0703125  
 
 uint32_t control_cycle_MOTION = 0; // count number of control cycle execution
 uint32_t control_cycle_MODE = 0;
-uint8_t communication_cycle_cnt = 0;
+volatile uint8_t communication_cycle_cnt = 0;
 // uint8_t flag_direction = 1;//1 - clockwise, 0 -counter clockwise, 1 at the start
 uint32_t real_time_counter_4CPUticks = 0; //real time in cmd with dt=0.1220703125 msec
 
@@ -71,7 +73,7 @@ const int buf_size = sizeof(real_time_counter_4CPUticks)+sizeof(motion_pos)+size
 uint8_t flag_direction_motion = 1;
 uint8_t flag_direction_mode = 1;
 
-#define ACCEL 12 // rad/sec^2
+#define ACCEL 100 // rad/sec^2
 int a = 0;
 uint16_t b = 0;
 uint16_t halfT;
@@ -79,10 +81,19 @@ float accel_cmdmsec; // accel in cmd/msec^2
 // #define halfT sqrt(2*((float)position_desired_up_motion-(float)position_desired_down_motion)/ACCEL_cmd)
 uint32_t last_control_cycle = 0;
 
+MPU6050 mpu;
+uint8_t fifoBuffer[45];         // буфер
+float ypr[3];
+
 void setup() {
   delay(2000);
 
   CLKCTRL.MCLKCTRLB &= ~CLKCTRL_PEN_bm; // disable MAIN_CLOCK PRESCALER
+
+  Wire.begin();
+  mpu.initialize();
+  mpu.dmpInitialize();
+  mpu.setDMPEnabled(true);
 
   position_desired_down_motion  =  transform_position_ang2comm_fl(MOTION_EQUIL - MOTION_A);
   position_desired_up_motion    = transform_position_ang2comm_fl(MOTION_EQUIL + MOTION_A) ;
@@ -125,16 +136,23 @@ void loop() {
     // motion_pos = transform_position_comm2ang_fl(Dynamixel.readPosition(MOTION_ID));
     // mode_pos = transform_position_comm2ang_fl(Dynamixel.readPosition(MODE_ID));
 
+    if (mpu.dmpGetCurrentFIFOPacket(fifoBuffer)) {
+        Quaternion q;
+        VectorFloat gravity;
+        mpu.dmpGetQuaternion(&q, fifoBuffer);
+        mpu.dmpGetGravity(&gravity, &q);
+        mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
+      }
 
 // @@@@@@@@@@@@@@@@@@@@@@@ sine control algorithm @@@@@@@@@@@@@@@@@@@@@@@ 
 
-    b =   fmod(real_time_counter_4CPUticks*0.1220703125, 2*halfT);
+    b = fmod(real_time_counter_4CPUticks*0.1220703125, 2*halfT);
     if( b <= halfT ){
       a = accel_cmdmsec*pow(b,2.0)/2.0 + position_desired_down_motion;
     }else{
       a =  -accel_cmdmsec*pow(b-halfT,2.0)/2.0 + position_desired_up_motion;
     }
-    Dynamixel.moveSpeed(MOTION_ID, a, MOTION_VEL_START );
+    // Dynamixel.moveSpeed(MOTION_ID, a, MOTION_VEL_START );
 // @@@@@@@@@@@@@@@@@@@@@@@ end of sine control algorithm @@@@@@@@@@@@@@@@@@@@@@@
 
   }
@@ -155,13 +173,14 @@ void communication_cycle(void){
   // mode_load = Dynamixel.readLoad(MODE_ID);
   motion_load = 100;
   mode_load = 100;
-  // motion_pos = 100;
-  // mode_pos = 100;
-  motion_pos = Dynamixel.readPosition(MOTION_ID);
-  mode_pos = Dynamixel.readPosition(MODE_ID);
+  motion_pos = 100;
+  mode_pos = 100;
+  // motion_pos = Dynamixel.readPosition(MOTION_ID);
+  // mode_pos = Dynamixel.readPosition(MODE_ID);
   // motion_vel = Dynamixel.readSpeed(MOTION_ID);
   // mode_vel = Dynamixel.readSpeed(MODE_ID);
   sendMotionMotorStates();
+  sendIMUdata();
 }
 
 int transform_velocity_fl(int motor,float vel){
@@ -211,6 +230,31 @@ void initMotors(void){
   delay(2000);
   Dynamixel.moveSpeed(MODE_ID, position_desired_down_mode, MODE_VEL_START );
   delay(2000);
+}
+
+void sendIMUdata(void){
+  uint8_t buf[16];
+  buf[0] = 0xFC;
+  buf[1] = 0xCF;
+  uint8_t c[4];
+  memcpy(c, &ypr[0], 4);
+  buf[2] = c[0];
+  buf[3] = c[1];
+  buf[4] = c[2];
+  buf[5] = c[3];
+  memcpy(c, &ypr[1], 4);
+  buf[6] = c[0];
+  buf[7] = c[1];
+  buf[8] = c[2];
+  buf[9] = c[3];
+  memcpy(c, &ypr[2], 4);
+  buf[10] = c[0];
+  buf[11] = c[1];
+  buf[12] = c[2];
+  buf[13] = c[3];
+  buf[14] = 13;
+  buf[15] = 10;
+  Serial.write(buf,buf_size);
 }
 
 void sendMotionMotorStates(void){
@@ -266,7 +310,7 @@ void RTC_init(void){
     }
     
     /* Set period  1 tick = 0.030517578125  msec */
-    RTC.PER = 328; 
+    RTC.PER = 983; 
 
     /* Clock Selection 32.768 kHz from OSCULP32K */
     RTC.CLKSEL = RTC_CLKSEL_INT32K_gc;
@@ -305,6 +349,8 @@ ISR(RTC_CNT_vect){
   // 197 - 6.011962890625 msec
   // 229 - 6.988525390625 msec
   // 328 - 10.009765625  msec
+  // 656 - 20.0189  msec
+  // 983 - 30  msec
   flag_RTC_Overflow_happened = 1;
   /* Clear flag by writing '1': */
   RTC.INTFLAGS = RTC_OVF_bm;

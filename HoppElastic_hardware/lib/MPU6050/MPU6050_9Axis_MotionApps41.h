@@ -142,6 +142,7 @@ class MPU6050_9Axis_MotionApps41 : public MPU6050_Base {
         uint32_t dmpGetAccelSumOfSquare();
         void dmpOverrideQuaternion(long *q);
         uint16_t dmpGetFIFOPacketSize();
+        uint8_t dmpGetCurrentFIFOPacket(uint8_t *data); // overflow proof
 
     private:
         uint8_t *dmpPacketBuffer;

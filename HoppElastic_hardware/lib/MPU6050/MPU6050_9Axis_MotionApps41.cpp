@@ -885,3 +885,7 @@ uint8_t MPU6050_9Axis_MotionApps41::dmpReadAndProcessFIFOPacket(uint8_t numPacke
 uint16_t MPU6050_9Axis_MotionApps41::dmpGetFIFOPacketSize() {
     return dmpPacketSize;
 }
+
+uint8_t MPU6050_9Axis_MotionApps41::dmpGetCurrentFIFOPacket(uint8_t *data) { // overflow proof
+    return(GetCurrentFIFOPacket(data, dmpPacketSize));
+}
