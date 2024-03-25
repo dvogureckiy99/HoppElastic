@@ -73,8 +73,10 @@ uint8_t flag_direction_mode = 1;
 uint8_t flag_control_started = 0;
 
 #define ACCEL_cmd 0.0015 // cmd/msec^2   e=0.006528-T=500ms;0.013056-250ms;0.003264-1s
+#define ACCEL 7.5 // rad/sec
 // uint32_t last_control_cycle;
 int a = 0;
+int v = 0;
 uint16_t b = 0;
 uint16_t halfT;
 // #define halfT sqrt(2*((float)position_desired_up_motion-(float)position_desired_down_motion)/ACCEL_cmd)
@@ -90,7 +92,8 @@ void setup() {
   position_desired_up_mode    = transform_position_ang2comm_fl(MODE_EQUIL + MODE_A) ;
 
   a = position_desired_down_motion;
-  double var = sqrt(2.0*((double)position_desired_up_motion-(double)position_desired_down_motion)/ACCEL_cmd);
+  // double var = sqrt(2.0*((double)position_desired_up_motion-(double)position_desired_down_motion)/ACCEL_cmd);
+  double var = sqrt(2.0*((double)position_desired_up_motion-(double)position_desired_down_motion)/(ACCEL*180*3.4099999999999997*1e-6/M_PI));
   halfT = (uint32_t)var;
 
   Serial.begin(256000);
