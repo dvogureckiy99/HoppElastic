@@ -52,7 +52,7 @@ uint32_t control_cycle_MOTION = 0; // count number of control cycle execution
 uint32_t control_cycle_MODE = 0;
 uint8_t communication_cycle_cnt = 0;
 // uint8_t flag_direction = 1;//1 - clockwise, 0 -counter clockwise, 1 at the start
-uint32_t real_time_counter_4CPUticks = 0; //real time in cmd with dt=0.1220703125
+uint32_t real_time_counter_4CPUticks = 0; //real time in cmd with dt=0.1220703125 msec
 
 // for amplitudes parameters
 int position_desired_up_motion ;
@@ -72,6 +72,13 @@ uint8_t flag_direction_motion = 1;
 uint8_t flag_direction_mode = 1;
 uint8_t flag_control_started = 0;
 
+#define ACCEL_cmd 0.0015 // cmd/msec^2   e=0.006528-T=500ms;0.013056-250ms;0.003264-1s
+// uint32_t last_control_cycle;
+int a = 0;
+uint16_t b = 0;
+uint16_t halfT;
+// #define halfT sqrt(2*((float)position_desired_up_motion-(float)position_desired_down_motion)/ACCEL_cmd)
+
 void setup() {
   delay(2000);
 
@@ -82,6 +89,10 @@ void setup() {
   position_desired_down_mode  = transform_position_ang2comm_fl(MODE_EQUIL - MODE_A);
   position_desired_up_mode    = transform_position_ang2comm_fl(MODE_EQUIL + MODE_A) ;
 
+  a = position_desired_down_motion;
+  double var = sqrt(2.0*((double)position_desired_up_motion-(double)position_desired_down_motion)/ACCEL_cmd);
+  halfT = (uint32_t)var;
+
   Serial.begin(256000);
   initMotors();
   RTC_init();
@@ -91,8 +102,6 @@ void setup() {
 
   motion_vel = MOTION_VEL_START;
   mode_vel = MODE_VEL_START;
-
-  Dynamixel.moveSpeed(MOTION_ID, position_desired_up_motion, motion_vel );
   
   // this need for control sequence doesn't call immidiatelly after entering in main loop
   // cause RTC timer will be overflowed anyway to this time 
@@ -102,57 +111,33 @@ void setup() {
   flag_RTC_Overflow_happened = 0;
 }
 
-// #define ACCEL  // deg/sec^2
-// #define ACCEL_cmd //
+
 
 void loop() {
     
 // ^^^^^^^^^^^^^^^^^^^^^^^ sine control, synchronization and calibration loop ^^^^^^^^^^^^^^^^^^^^^^^
   if(flag_RTC_Overflow_happened){ // __ ms passed
     flag_RTC_Overflow_happened = 0; // flag is to zero until next ___ ms interval passed
-    control_cycle_MOTION ++; 
-
-    if(flag_control_started)
-    {
-      control_cycle_MODE ++;
-    }else{
-      if(real_time_counter_4CPUticks*0.1220703125>=PHASE_SHIFT)
-      {
-        Dynamixel.moveSpeed(MODE_ID, position_desired_up_mode, mode_vel );
-        control_cycle_MODE ++;
-        flag_control_started = 1;
-      }
-    } 
     communication_cycle_cnt ++;
     // communication_cycle();
     // motion_pos = transform_position_comm2ang_fl(Dynamixel.readPosition(MOTION_ID));
     // mode_pos = transform_position_comm2ang_fl(Dynamixel.readPosition(MODE_ID));
+
+
+// @@@@@@@@@@@@@@@@@@@@@@@ sine control algorithm @@@@@@@@@@@@@@@@@@@@@@@ 
+
+    b =   fmod(real_time_counter_4CPUticks*0.1220703125, 2*halfT);
+    if( b <= halfT ){
+      a =  ACCEL_cmd*pow(b,2.0)/2.0 + position_desired_down_motion;}else{
+      a =  -ACCEL_cmd*pow(b-halfT,2.0)/2.0 + position_desired_up_motion;
+    }
+    Dynamixel.moveSpeed(MOTION_ID, a, MOTION_VEL_START );
+// @@@@@@@@@@@@@@@@@@@@@@@ end of sine control algorithm @@@@@@@@@@@@@@@@@@@@@@@
+
   }
 // ^^^^^^^^^^^^^^^^^^^^^^^ end of sine control and calibration loop ^^^^^^^^^^^^^^^^^^^^^^^
 
-// @@@@@@@@@@@@@@@@@@@@@@@ sine control algorithm @@@@@@@@@@@@@@@@@@@@@@@ 
-  if(control_cycle_MOTION >= MOTION_HALFPERIOD){
-    if(flag_direction_motion){
-      flag_direction_motion = 0;
-      Dynamixel.moveSpeed(MOTION_ID, position_desired_down_motion, motion_vel );
-    }else{
-      flag_direction_motion = 1;
-      Dynamixel.moveSpeed(MOTION_ID, position_desired_up_motion, motion_vel );
-    }
-    control_cycle_MOTION = 0;
-  }
-  
-  if(control_cycle_MODE >= MODE_HALFPERIOD ){
-    if(flag_direction_mode){
-      flag_direction_mode = 0;
-      Dynamixel.moveSpeed(MODE_ID, position_desired_down_mode , mode_vel );
-    }else{
-      flag_direction_mode = 1;
-      Dynamixel.moveSpeed(MODE_ID, position_desired_up_mode, mode_vel );
-    }
-    control_cycle_MODE = 0;
-  }
-  // @@@@@@@@@@@@@@@@@@@@@@@ end of sine control algorithm @@@@@@@@@@@@@@@@@@@@@@@
+
 
 // ------------------- serial communication procedure -----------------  
   if(communication_cycle_cnt > 1){
@@ -163,8 +148,12 @@ void loop() {
 }
 
 void communication_cycle(void){
-  motion_load = Dynamixel.readLoad(MOTION_ID);
-  mode_load = Dynamixel.readLoad(MODE_ID);
+  // motion_load = Dynamixel.readLoad(MOTION_ID);
+  // mode_load = Dynamixel.readLoad(MODE_ID);
+  motion_load = 100;
+  mode_load = 100;
+  // motion_pos = 100;
+  // mode_pos = 100;
   motion_pos = Dynamixel.readPosition(MOTION_ID);
   mode_pos = Dynamixel.readPosition(MODE_ID);
   // motion_vel = Dynamixel.readSpeed(MOTION_ID);
@@ -230,10 +219,27 @@ void sendMotionMotorStates(void){
   buf[3] = real_time_counter_4CPUticks >> 8;
   buf[4] = real_time_counter_4CPUticks >> 16;
   buf[5] = real_time_counter_4CPUticks >> 24;  
+  uint8_t c[2];
+  // memcpy(c, &a, 2);
+  // buf[6] = c[0];
+  // buf[7] = c[1];
+  // buf[8] = c[2];
+  // buf[9] = c[3];
+  // memcpy(c, &b, 2);
+  // buf[8] = c[0];
+  // buf[9] = c[1];
+  // memcpy(c, &halfT, 2);
+  // buf[10] = c[0];
+  // buf[11] = c[1];
+  // buf[12] = c[2];
+  // buf[13] = c[3];
   buf[6] = motion_pos ;
   buf[7] = motion_pos >> 8;
-  buf[8] = mode_pos ;
-  buf[9] = mode_pos >> 8;
+  memcpy(c, &a, 2);
+  buf[8] = c[0];
+  buf[9] = c[1];
+  // buf[8] = mode_pos ;
+  // buf[9] = mode_pos >> 8;
   buf[10] = motion_load ;
   buf[11] = motion_load >> 8;
   buf[12] = mode_load ;
