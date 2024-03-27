@@ -130,6 +130,7 @@ uint32_t last_communication_procedure = 0 ;
 #define SEC1 8192
 #define MSEC500 4096
 #define MSEC250 2048
+#define MSEC20 164
 
 void loop() {
     
@@ -175,7 +176,7 @@ void loop() {
 
 
 // ------------------- serial communication procedure -----------------  
-    if(  real_time_counter_4CPUticks - last_communication_procedure >= MSEC250){
+    if(  real_time_counter_4CPUticks - last_communication_procedure >= MSEC20){
     communication_cycle();
     last_communication_procedure = real_time_counter_4CPUticks;
   }
@@ -193,20 +194,20 @@ void communication_cycle(void){
   // mode_pos = Dynamixel.readPosition(MODE_ID);
   // motion_vel = Dynamixel.readSpeed(MOTION_ID);
   // mode_vel = Dynamixel.readSpeed(MODE_ID);
-  // sendMotionMotorStates();
-  // sendIMUdata();
-  Serial.print(accel_raw.x);
-  Serial.print(",");
-  Serial.print(accel_raw.y);
-  Serial.print(",");
-  Serial.print(accel_raw.z);
-  Serial.print(",");
-  Serial.print(gravity.x);
-  Serial.print(",");
-  Serial.print(gravity.y);
-  Serial.print(",");
-  Serial.print(gravity.z);
-  Serial.println();
+  sendMotionMotorStates();
+  sendIMUdata();
+  // Serial.print(accel_raw.x);
+  // Serial.print(",");
+  // Serial.print(accel_raw.y);
+  // Serial.print(",");
+  // Serial.print(accel_raw.z);
+  // Serial.print(",");
+  // Serial.print(ypr[0]);
+  // Serial.print(",");
+  // Serial.print(ypr[1]);
+  // Serial.print(",");
+  // Serial.print(ypr[2]);
+  // Serial.println();
 }
 
 int transform_velocity_fl(int motor,float vel){
