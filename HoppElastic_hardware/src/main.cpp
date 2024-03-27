@@ -52,7 +52,6 @@ volatile uint16_t PIT_counter = 0; // 1 tick = 0.1220703125 msec = 122.0703125  
 
 uint32_t control_cycle_MOTION = 0; // count number of control cycle execution
 uint32_t control_cycle_MODE = 0;
-volatile uint8_t communication_cycle_cnt = 0;
 // uint8_t flag_direction = 1;//1 - clockwise, 0 -counter clockwise, 1 at the start
 uint32_t real_time_counter_4CPUticks = 0; //real time in cmd with dt=0.1220703125 msec
 
@@ -84,6 +83,9 @@ uint32_t last_control_cycle = 0;
 MPU6050 mpu;
 uint8_t fifoBuffer[45];         // буфер
 float ypr[3];
+VectorInt16 accel;
+VectorInt16 accel_raw;
+VectorFloat gravity;
 
 void setup() {
   delay(2000);
@@ -124,24 +126,36 @@ void setup() {
   flag_RTC_Overflow_happened = 0;
 }
 
-
+uint32_t last_communication_procedure = 0 ;
+#define SEC1 8192
+#define MSEC500 4096
+#define MSEC250 2048
 
 void loop() {
     
 // ^^^^^^^^^^^^^^^^^^^^^^^ sine control, synchronization and calibration loop ^^^^^^^^^^^^^^^^^^^^^^^
   if(flag_RTC_Overflow_happened){ // __ ms passed
     flag_RTC_Overflow_happened = 0; // flag is to zero until next ___ ms interval passed
-    communication_cycle_cnt ++;
     // communication_cycle();
     // motion_pos = transform_position_comm2ang_fl(Dynamixel.readPosition(MOTION_ID));
     // mode_pos = transform_position_comm2ang_fl(Dynamixel.readPosition(MODE_ID));
 
     if (mpu.dmpGetCurrentFIFOPacket(fifoBuffer)) {
         Quaternion q;
-        VectorFloat gravity;
+        VectorInt16 accel_raw1;
+        VectorFloat gravity1;
+
         mpu.dmpGetQuaternion(&q, fifoBuffer);
-        mpu.dmpGetGravity(&gravity, &q);
-        mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
+        mpu.dmpGetGravity(&gravity1, &q);
+        mpu.dmpGetYawPitchRoll(ypr, &q, &gravity1);
+        mpu.dmpGetAccel(&accel_raw1,fifoBuffer);
+        accel_raw.x = accel_raw1.x ;
+        accel_raw.y = accel_raw1.y ;
+        accel_raw.z = accel_raw1.z ; 
+        gravity.x = gravity1.x;
+        gravity.y = gravity1.y;
+        gravity.z = gravity1.z;
+        mpu.dmpGetLinearAccel(&accel,&accel_raw1,&gravity1);
       }
 
 // @@@@@@@@@@@@@@@@@@@@@@@ sine control algorithm @@@@@@@@@@@@@@@@@@@@@@@ 
@@ -161,9 +175,9 @@ void loop() {
 
 
 // ------------------- serial communication procedure -----------------  
-  if(communication_cycle_cnt > 1){
+    if(  real_time_counter_4CPUticks - last_communication_procedure >= MSEC250){
     communication_cycle();
-    communication_cycle_cnt = 0;
+    last_communication_procedure = real_time_counter_4CPUticks;
   }
 // ------------------- end of serial communication procedure -----------------  
 }
@@ -179,8 +193,20 @@ void communication_cycle(void){
   // mode_pos = Dynamixel.readPosition(MODE_ID);
   // motion_vel = Dynamixel.readSpeed(MOTION_ID);
   // mode_vel = Dynamixel.readSpeed(MODE_ID);
-  sendMotionMotorStates();
-  sendIMUdata();
+  // sendMotionMotorStates();
+  // sendIMUdata();
+  Serial.print(accel_raw.x);
+  Serial.print(",");
+  Serial.print(accel_raw.y);
+  Serial.print(",");
+  Serial.print(accel_raw.z);
+  Serial.print(",");
+  Serial.print(gravity.x);
+  Serial.print(",");
+  Serial.print(gravity.y);
+  Serial.print(",");
+  Serial.print(gravity.z);
+  Serial.println();
 }
 
 int transform_velocity_fl(int motor,float vel){
@@ -233,7 +259,7 @@ void initMotors(void){
 }
 
 void sendIMUdata(void){
-  uint8_t buf[16];
+  uint8_t buf[40];
   buf[0] = 0xFC;
   buf[1] = 0xCF;
   uint8_t c[4];
@@ -252,14 +278,47 @@ void sendIMUdata(void){
   buf[11] = c[1];
   buf[12] = c[2];
   buf[13] = c[3];
-  buf[14] = 13;
-  buf[15] = 10;
-  Serial.write(buf,buf_size);
+  memcpy(c, &accel.x, 2);
+  buf[14] = c[0];
+  buf[15] = c[1];
+  memcpy(c, &accel.y, 2);
+  buf[16] = c[0];
+  buf[17] = c[1];
+  memcpy(c, &accel.z, 2);
+  buf[18] = c[0];
+  buf[19] = c[1];
+  memcpy(c, &accel_raw.x, 2);
+  buf[20] = c[0];
+  buf[21] = c[1];
+  memcpy(c, &accel_raw.y, 2);
+  buf[22] = c[0];
+  buf[23] = c[1];
+  memcpy(c, &accel_raw.z, 2);
+  buf[24] = c[0];
+  buf[25] = c[1];
+  memcpy(c, &gravity.x, 4);
+  buf[26] = c[0];
+  buf[27] = c[1];
+  buf[28] = c[2];
+  buf[29] = c[3];
+  memcpy(c, &gravity.y, 4);
+  buf[30] = c[0];
+  buf[31] = c[1];
+  buf[32] = c[2];
+  buf[33] = c[3];
+  memcpy(c, &gravity.z, 4);
+  buf[34] = c[0];
+  buf[35] = c[1];
+  buf[36] = c[2];
+  buf[37] = c[3];
+  buf[38] = 13;
+  buf[39] = 10;
+  Serial.write(buf,40);
 }
 
 void sendMotionMotorStates(void){
   // Dynamixel's sensor data
-  uint8_t buf[buf_size];
+  uint8_t buf[16];
   buf[0] = 0xFE;
   buf[1] = 0xEF;
   buf[2] = real_time_counter_4CPUticks;
@@ -298,7 +357,7 @@ void sendMotionMotorStates(void){
   // buf[13] = mode_load >> 8;
   buf[14] = 13;
   buf[15] = 10;
-  Serial.write(buf,buf_size);
+  Serial.write(buf,16);
 }
 
 void RTC_init(void){   
@@ -310,7 +369,7 @@ void RTC_init(void){
     }
     
     /* Set period  1 tick = 0.030517578125  msec */
-    RTC.PER = 983; 
+    RTC.PER = 328; 
 
     /* Clock Selection 32.768 kHz from OSCULP32K */
     RTC.CLKSEL = RTC_CLKSEL_INT32K_gc;
@@ -351,6 +410,7 @@ ISR(RTC_CNT_vect){
   // 328 - 10.009765625  msec
   // 656 - 20.0189  msec
   // 983 - 30  msec
+  // 1311 - 40  msec
   flag_RTC_Overflow_happened = 1;
   /* Clear flag by writing '1': */
   RTC.INTFLAGS = RTC_OVF_bm;
